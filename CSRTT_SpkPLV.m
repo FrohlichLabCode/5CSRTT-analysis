@@ -1,5 +1,6 @@
 function CSRTT_SpkPLV(irec)
 startTime = tic;
+
 cluster = 0;
 skipRec = 1;
 linORlog = 2; %freqs of interest: 1=linear 2=log
@@ -7,22 +8,28 @@ MedianorPCA = 3;
 plotValidChnSelection = [0,1]; %[0,1] plot both all chan and valid chan
 animals = {'0171'};
 level = '';
-wavHil = 1; % 0 for hilbert mean lfp, 1 for wavelet each chn, 2 for hilbert each chn
-transformLab = {'Wave', 'Hil'};
 newFs = 400; % to downsample the lfp for faster computing
-lfpLab = {'Evoked', 'Indu'};
+doMix = 1;
+if doMix == 1
+    mixSuffix = '_mix';
+else
+    mixSuffix = [];
+end
+% lfpLab = {'Evoked', 'Indu'};
+% wavHil = 1; % 0 for hilbert mean lfp, 1 for wavelet each chn, 2 for hilbert each chn
+% transformLab = {'Wave', 'Hil'};
 
 for iAnimal = 1%:numel(animals)
     animalCode = animals{iAnimal};
 
 if cluster == 0 %linux use '/', windows matlab can use both '/' and '\'
     addpath(genpath( 'E:/Dropbox (Frohlich Lab)/Frohlich Lab Team Folder/Codebase/CodeAngel/Ephys/'));
-    PreprocessDir = ['E:/FerretData/' animalCode '/Preprocessed/'];
+    PreprocessDir = ['E:/FerretData/' animalCode '/Preprocessed' mixSuffix '/'];
     AnalysisDir   = ['E:/FerretData/' animalCode '/Analyzed/'];
 
 elseif cluster == 1
     addpath(genpath( '/nas/longleaf/home/angelvv/Code/')) % CHANGE FOR KILLDEVIL VS LONGLEAF
-    PreprocessDir = ['/pine/scr/h/w/angelvv/FerretData/' animalCode '/Preprocessed/']; % CHANGE FOR KILLDEVIL VS LONGLEAF
+    PreprocessDir = ['/pine/scr/h/w/angelvv/FerretData/' animalCode '/Preprocessed' mixSuffix '/']; % CHANGE FOR KILLDEVIL VS LONGLEAF
     AnalysisDir   = ['/pine/scr/h/w/angelvv/FerretData/' animalCode '/Analyzed/'];
 
     %code for initialising parallel computing
@@ -33,9 +40,9 @@ end
 
 %% Define frequencies of interest.
 [foi, tickLoc, tickLabel,~,~] = getFoiLabel(2, 128, 150, 2);% lowFreq, highFreq, numFreqs, linORlog)
-if wavHil == 1
+%if wavHil == 1
     wavs = is_makeWavelet(foi,newFs); % make wavelets from FOI frequencies
-end
+%end
 numFreq = numel(foi);
 
 fileInfo   = dir([PreprocessDir animalCode '_Level' level '*']); % detect fileInfo to load/convert  '_LateralVideo*' can't process opto
@@ -119,11 +126,23 @@ if length(dir([rootAnalysisDir 'SpkPLV_' alignHitName '*.mat'])) < numCond || sk
     for iCond = 1:numCond % seperate each condition to save as different files
         condName = condNames{condID(iCond)};
         evtTime  = evtTimes{condID(iCond)};
+        if length(condName) >= 3 && strcmp(condName(end-2:end),'all') %collapse all conditions
+            nSpks = 40; winSize = 0.5;
+        else
+            nSpks = 20; winSize = 1;
+        end
+        spikeSuffix = ['_' num2str(round(nSpks/winSize)) 'spk'];
+        
+        if exist([rootAnalysisDir 'SpkPLV_' alignHitName condName spikeSuffix '.mat']) && skipRec == 1
+        continue; end  % skip this condition
+        
+        % start calculating spike PLV
         parfor (iFreq = 1:numFreq, parforArg)
             [evtSpkPLVAll(:,:,iFreq,:,:),evtSpkAngleAll(:,:,iFreq,:,:)] ...
-                = CSRTT_SpkPLV_cluster(recName, twin, newFs, iFreq, foi, wavs,regionLFP, regionNames, regionChn, regionSpk, condNames,condID, evtTimes);
+                = CSRTT_SpkPLV_cluster(recName, twin, newFs, iFreq, foi, wavs,regionLFP, regionNames, regionChn, regionSpk, condName, evtTime,winSize, nSpks);
         end
-
+        
+        
         dat.regionChn = regionChn;
         dat.twin = twin;
         dat.numBins = size(evtSpkPLVAll,length(size(evtSpkPLVAll)));
@@ -136,7 +155,7 @@ if length(dir([rootAnalysisDir 'SpkPLV_' alignHitName '*.mat'])) < numCond || sk
         dat.regionNames = regionNames;
 
         AH_mkdir(rootAnalysisDir);
-        save([rootAnalysisDir 'SpkPLV_' alignHitName condName '_40spk'],'dat','-v7.3');
+        save([rootAnalysisDir 'SpkPLV_' alignHitName condName spikeSuffix],'dat','-v7.3');
     end % end of each condition
 
 else % directly load file to plot
@@ -145,7 +164,14 @@ else % directly load file to plot
 fprintf(['record ' recName ' all conditions already calculated, start plotting'])
 for iCond = 1:numCond % seperate each condition to save as different files
     condName = condNames{condID(iCond)};
-    load([rootAnalysisDir 'SpkPLV_' alignHitName condName '_40spk'],'dat')
+    if strcmp(condName(end-2:end),'all') %collapse all conditions
+        nSpks = 80;
+    else
+        nSpks = 40;
+    end
+    spikeSuffix = ['_' num2str(nSpks) 'spk'];
+    
+    load([rootAnalysisDir 'SpkPLV_' alignHitName condName spikeSuffix],'dat')
 
 %% chn avged
 [numRegionSpk, numRegionLFP, numFreq, numChn, numBins] = size(dat.evtSpkPLVAll);
@@ -182,7 +208,7 @@ for i = 1:numel(plotValidChnSelection)
                 validName = '_all';
             end
 
-            fileName = ['SpkPLV_' alignHitName condName validName 'SpkChn_40spk'];
+            fileName = ['SpkPLV_' alignHitName condName validName 'SpkChn' spikeSuffix];
 
             imagesc(tvec,1:numFreq, toPlot)
             title([regionNameSpk '-' regionNameLFP ' Spike PLV'])
