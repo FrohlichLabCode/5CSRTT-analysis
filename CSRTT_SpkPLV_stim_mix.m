@@ -1,7 +1,7 @@
-function CSRTT_SpkPLV(irec)
+function CSRTT_SpkPLV_stim_mix(irec)
 startTime = tic;
 
-cluster = 0;
+cluster = 1;
 skipRec = 1;
 linORlog = 2; %freqs of interest: 1=linear 2=log
 MedianorPCA = 3; 
@@ -10,8 +10,8 @@ animals = {'0171'};
 level = '';
 newFs = 400; % to downsample the lfp for faster computing
 doMix = 1;
-alignID = 1; %1=Init, 2=Stim, 3=Touch, 4=Opto
-hitMissID = 1; %{'Correct'}    {'Incorrect'}    {'Omission'}    {'Premature'}    {'noPremature'}
+alignID = 2; %1=Init, 2=Stim, 3=Touch, 4=Opto
+hitMissID = 1; %1=Correct, 2=Premature, 3=Incorrect, 4=Omission, 5=noPremature
 if doMix == 1
     mixSuffix = '_mix';
 else
@@ -79,8 +79,8 @@ alignName = alignNames{alignID}; %Init
 hitMissName = hitMissNames{hitMissID}(1:3); %Cor
 alignHitName = [alignName hitMissName]; %InitCorAll
 
-if length(dir([rootAnalysisDir 'SpkPLV_' alignHitName '*.mat'])) < numCond || skipRec == 0 % don't skip
-    fprintf('\nWorking on record %s =============== \n',recName');   
+% if length(dir([rootAnalysisDir 'SpkPLV_' alignHitName '*.mat'])) < numCond || skipRec == 0 % don't skip
+%     fprintf('\nWorking on record %s =============== \n',recName');   
 
     %% load lfp
     EEG = pop_loadset([rootPreprocessDir 'lfp/lfp_1000fdA.set']);
@@ -160,7 +160,7 @@ if length(dir([rootAnalysisDir 'SpkPLV_' alignHitName '*.mat'])) < numCond || sk
         save([rootAnalysisDir 'SpkPLV_' alignHitName condName spikeSuffix],'dat','-v7.3');
     end % end of each condition
 
-else % directly load file to plot
+%else % directly load file to plot
 
 %% Plotting SpkPLV    
 fprintf(['record ' recName ' all conditions already calculated, start plotting'])
@@ -169,7 +169,7 @@ for iCond = 1:numCond % seperate each condition to save as different files
     if strcmp(condName(end-2:end),'all') %collapse all conditions
         nSpks = 80;
     else
-        nSpks = 40;
+        nSpks = 20;
     end
     spikeSuffix = ['_' num2str(nSpks) 'spk'];
     
@@ -231,7 +231,7 @@ for i = 1:numel(plotValidChnSelection)
 end
 end
 end
-end
+%end
 
 sprintf(['time:' num2str(toc(startTime))])
 if cluster == 1; delete(myPool);end
