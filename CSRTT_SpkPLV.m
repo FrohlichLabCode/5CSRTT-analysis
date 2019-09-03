@@ -164,7 +164,7 @@ else % directly load file to plot
 
 %% Plotting SpkPLV    
 fprintf(['record ' recName ' all conditions already calculated, start plotting'])
-for iCond = 1:numCond % seperate each condition to save as different files
+for length(condName) >= 3 && iCond = 1:numCond % seperate each condition to save as different files
     condName = condNames{condID(iCond)};
     if strcmp(condName(end-2:end),'all') %collapse all conditions
         nSpks = 80;
