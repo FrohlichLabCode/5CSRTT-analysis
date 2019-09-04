@@ -145,7 +145,7 @@ for iCond = 1:numCond
         
         subplot(numCond,numel(regionNames),ipanel)
         
-        imagesc(toPlot) % Display data with scaled color
+        imagesc(toPlot)
         title(['Z-score FR PSTH: ' regionName '; ' condName])
         xlabel('Time [s]');
         ylabel('Channel');
@@ -166,20 +166,17 @@ saveas(fig, [rootAnalysisDir 'Z-score FR PSTH_-2~0base.png']);
 
 clear toPlot
 %% chn avged
-% Dynamically adjust figure size according to screensize
 screensize = get( groot, 'Screensize' );
-fig = figure('Position',[10 50 (screensize(3)-100)/2 (screensize(4)-150)/4]);
 tvec = linspace(twin(1), twin(2), size(frZ,length(size(frZ))));
+fig = figure('Position',[10 50 (screensize(3)-100)/2 (screensize(4)-150)/4]);
 
 for iRegion = 1:numel(regionNames)
     subplot(1,numel(regionNames),iRegion)
     hold on
     legendName = {};
     if length(condIDs) == 1
-        sliceData = reshape(data2Analyze(condIDs(1),validChn{iRegion},:),...
-            [numel(validChn{iRegion}),size(data2Analyze,3)]);
-        sliceData(isinf(sliceData)) = NaN; % replace Inf with NaN
-        data2Average = sliceData(any(sliceData,2),:); % remove channels without any spike from mean calculation
+        sliceData = reshape(data2Analyze(condIDs(1),validChn{iRegion},:),[numel(validChn{iRegion}),size(data2Analyze,3)]);
+        data2Average = sliceData(any(sliceData,2),:);
         toPlot(iCond,iRegion,:) = squeeze(nanmean(data2Average,1));
         toPlot(iCond,iRegion,:) = smoothts(toPlot(iCond,iRegion,:),'g',3,0.65);
         plot(toPlot, 'LineWidth', 1.5)
@@ -192,8 +189,8 @@ for iRegion = 1:numel(regionNames)
             % delete all channels with all zeros
             sliceData = reshape(data2Analyze(iCond,validChn{iRegion},:),[numel(validChn{iRegion}),size(data2Analyze,3)]);
             sliceData(isinf(sliceData)) = NaN; % replace Inf with NaN
-            data2Average = sliceData(any(sliceData,2),:); % remove channels without any spike
-            toPlot(iCond,iRegion,:) = squeeze(nanmean(data2Average,1)); % average across channels
+            data2Average = sliceData(any(sliceData,2),:);
+            toPlot(iCond,iRegion,:) = squeeze(nanmean(data2Average,1));
             toPlot(iCond,iRegion,:) = smoothts(toPlot(iCond,iRegion,:),'g',3,0.65);
             plot(tvec, squeeze(toPlot(iCond,iRegion,:)), 'LineWidth', 1.5)
             legendName{end+1} = condName;
