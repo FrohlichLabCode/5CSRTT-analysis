@@ -4,7 +4,7 @@ function CSRTT_SpkCorr(irec)
 startTime = tic;
 
 cluster = 1;
-skipRec = 0;
+skipRec = 1;
 linORlog = 2; %freqs of interest: 1=linear 2=log
 MedianorPCA = 0; 
 %doValidChn= 1; %[0,1] plot both all chan and valid chan
@@ -138,7 +138,9 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
         regionNameX = regionNames{iRegionX};
         regionChnX = regionChns{iRegionX}; % get valid channel numbers
         Corr.([regionNameX '_' regionNameX]) = nan(length(regionChnX),2049);        
-        for iChn = 1:length(regionChnX) 
+        for iChn = 1:length(regionChnX)
+            fprintf(['Chn# ' num2str(iChn) '\n'])
+            if isempty(spkTimes(iChn).(regionNameX));continue;end
             if eventSelection == 0
                 spkVec = zeros(1,winLength);
                 spkVec(round(spkTimes(iChn).(regionNameX)*lfpFs)) = 1;
@@ -194,11 +196,11 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
                     %fig = figure(); plot(svec,tmpxc); xlabel("Time [ms]"); xlim([svec(1),svec(end)]); 
                     else 
                         for iEvt = 1:numel(evtTime)
-                            fprintf('\nWorking on %d %d %d %d trial %d\n', iRegionX, iRegionY, iChnX, iChnY, iEvt)
+                            fprintf('\nWorking on regionX%d regionY%d iChnX%d iChnY%d trial %d\n', iRegionX, iRegionY, iChnX, iChnY, iEvt)
                             nSpikeX = length(spkTimes(iChnX,iEvt).(regionNameX));
                             nSpikeY = length(spkTimes(iChnY,iEvt).(regionNameY));
                             % Exclude any trial with no spike in a channel
-                            if nSpikeX*nSpikeY == 0; %tmpxcEvt(iEvt,:) = NaN(1,2049);
+                            if nSpikeX*nSpikeY == 0 %tmpxcEvt(iEvt,:) = NaN(1,2049);
                                 continue;end % has to fill in with NaN, otherwise will be 0
                             spkVecX = zeros(1,winLength); % use round to avoid 0 index
                             spkVecX(round(spkTimes(iChnX,iEvt).(regionNameX)*lfpFs)) = 1;
@@ -207,6 +209,7 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
                             tmpxcEvt(iEvt,:) = crosscorr(spkVecX,spkVecY,1024);
                             %fig = figure(); plot(svec,tmpxcEvt(1,:)); xlabel("Time [ms]"); xlim([svec(1),svec(end)]); 
                         end
+                        if ~exist('tmpxcEvt'); continue; end % no events with spikes
                         tmpxc = nanmean(tmpxcEvt,1); % average across events
                         Corr.(pairName)(chnCount,:) = tmpxc;
                         chnCount = chnCount+1; % for each channel pair
@@ -223,7 +226,8 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
     fprintf('\nDone Computing spkTimes and Corr \n')
     
     else % direcly load file
-        if ~exist('Corr'); load([rootAnalysisDir saveName]);end
+        if ~exist('Corr.P*'); load([rootAnalysisDir saveName '_correlogram']);end % since corr is an endogenous variable, exist('Corr') will always give 6 before loading
+        fprintf('\nLoading spkTimes and Corr \n')
     end % end of each condition calculating correlation
 
     
@@ -233,6 +237,7 @@ fig = AH_figure(numRegion, numRegion, 'Spike Correlogram');
 for iRegionX = 1:numRegion
     regionNameX = regionNames{iRegionX};
     for iRegionY = 1:numRegion
+        if iRegionX > iRegionY; continue;end
         regionNameY = regionNames{iRegionY};        
         subplot(numRegion, numRegion, (iRegionX-1)*numRegion+iRegionY)
         pairName = [regionNameX '_' regionNameY];
@@ -253,11 +258,14 @@ figHandle = AH_figure(numRegion, numRegion, 'SpikeCorr Power');
 for iRegionX = 1:numRegion
     regionNameX = regionNames{iRegionX};
     for iRegionY = 1:numRegion
-        if iRegionX < iRegionY; continue;end
+        if iRegionX > iRegionY; continue;end
         regionNameY = regionNames{iRegionY};
         pairName = [regionNameX '_' regionNameY];
         CorrPow.(pairName) = NaN;
+        try
         CorrPow.(pairName) = compute_plot_powerSpec(Corr.(pairName),figHandle,numRegion,numRegion,(iRegionX-1)*numRegion+iRegionY);
+        catch
+        end
         %drawnow
         title([regionNameX '-' regionNameY]);
         if iRegionX == numRegion; xlabel('Freq [Hz]'); end
