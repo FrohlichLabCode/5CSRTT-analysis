@@ -4,7 +4,7 @@ function CSRTT_SpkCorr(irec)
 startTime = tic;
 
 cluster = 1;
-skipRec = 1;
+skipRec = 0;
 linORlog = 2; %freqs of interest: 1=linear 2=log
 MedianorPCA = 0; 
 %doValidChn= 1; %[0,1] plot both all chan and valid chan
@@ -116,6 +116,7 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
             spkTime1 = is_load([rootPreprocessDir 'spikes/spk_' num2str(chnID)],'spkTime');
             if eventSelection == 0
                 if length(spkTime1) < minSpkRate*winLength/lfpFs
+                    spkTimes(iChn).(regionName) = [];
                     continue;end % skip chn without enough spikes
                 spkTimes(iChn).(regionName) = spkTime1;
                 spkTimes(iChn).(regionName)(spkTimes(iChn).(regionName)<1/lfpFs) = 1/lfpFs; % assign small value to 0.001 so that its index will be 1 instead of 0
@@ -123,6 +124,7 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
                 for iEvt = 1:numel(evtTime)
                     spkTime = spkTime1(spkTime1>=evtTime(iEvt)+twin(1) & spkTime1<=evtTime(iEvt)+twin(2)); 
                     if length(spkTime) < minSpkRate*winLength/lfpFs
+                        spkTimes(iChn,iEvt).(regionName) = [];
                         continue;end % skip evt without enough spikes
                     spkTimes(iChn,iEvt).(regionName) = spkTime - evtTime(iEvt) - twin(1); % align with window start
                     spkTimes(iChn,iEvt).(regionName)(spkTimes(iChn,iEvt).(regionName)<1/lfpFs) = 1/lfpFs; % assign small value to 0.001 so that its index will be 1 instead of 0
@@ -140,7 +142,7 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
         Corr.([regionNameX '_' regionNameX]) = nan(length(regionChnX),2049);        
         for iChn = 1:length(regionChnX)
             fprintf(['Chn# ' num2str(iChn) '\n'])
-            if isempty(spkTimes(iChn).(regionNameX));continue;end
+            if isempty(spkTimes(iChn).(regionNameX));continue;end            
             if eventSelection == 0
                 spkVec = zeros(1,winLength);
                 spkVec(round(spkTimes(iChn).(regionNameX)*lfpFs)) = 1;
@@ -148,6 +150,9 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
                 tmpxc(delsamps) = NaN;
             else 
                 for iEvt = 1:numel(evtTime)
+                    if isempty(spkTimes(iChn,iEvt).(regionNameX))
+                        tmpxcEvt(iEvt,:) = NaN(1,2049);
+                        continue;end
                     spkVec = zeros(1,winLength);
                     spkVec(round(spkTimes(iChn,iEvt).(regionNameX)*lfpFs)) = 1;
                     tmpxcEvt(iEvt,:) = crosscorr(spkVec,spkVec,1024);
@@ -196,7 +201,7 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
                     %fig = figure(); plot(svec,tmpxc); xlabel("Time [ms]"); xlim([svec(1),svec(end)]); 
                     else 
                         for iEvt = 1:numel(evtTime)
-                            fprintf('\nWorking on regionX%d regionY%d iChnX%d iChnY%d trial %d\n', iRegionX, iRegionY, iChnX, iChnY, iEvt)
+                            fprintf('\nXCorr for iRegionX%d iRegionY%d iChnX%d iChnY%d trial %d\n', iRegionX, iRegionY, iChnX, iChnY, iEvt)
                             nSpikeX = length(spkTimes(iChnX,iEvt).(regionNameX));
                             nSpikeY = length(spkTimes(iChnY,iEvt).(regionNameY));
                             % Exclude any trial with no spike in a channel
@@ -209,11 +214,11 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
                             tmpxcEvt(iEvt,:) = crosscorr(spkVecX,spkVecY,1024);
                             %fig = figure(); plot(svec,tmpxcEvt(1,:)); xlabel("Time [ms]"); xlim([svec(1),svec(end)]); 
                         end
-                        if ~exist('tmpxcEvt'); continue; end % no events with spikes
+                        if ~exist('tmpxcEvt','var'); continue; end % no events with spikes
                         tmpxc = nanmean(tmpxcEvt,1); % average across events
                         Corr.(pairName)(chnCount,:) = tmpxc;
                         chnCount = chnCount+1; % for each channel pair
-                        if exist('tmpxcEvt'); clear tmpxcEvt;end
+                        if exist('tmpxcEvt','var'); clear tmpxcEvt;end
                     end % end of eventSelection
                 end % end of iChnY
             end % end of iChnX

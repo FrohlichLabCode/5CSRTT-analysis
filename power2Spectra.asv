@@ -1,0 +1,8 @@
+function power2Spectra(skipRec, TOI, rootAnalysisDir, GroupAnalysisDir)
+if ~exist()
+% calculating spectra
+file = is_load([rootAnalysisDir 'FC_StimCor*_MdtriMdchn.mat'],'avgXSpec');
+
+
+end
+end
