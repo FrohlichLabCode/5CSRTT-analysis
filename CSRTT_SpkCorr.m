@@ -4,7 +4,7 @@ function CSRTT_SpkCorr(irec)
 startTime = tic;
 
 cluster = 1;
-skipRec = 0;
+skipRec = 1;
 linORlog = 2; %freqs of interest: 1=linear 2=log
 MedianorPCA = 0; 
 %doValidChn= 1; %[0,1] plot both all chan and valid chan
@@ -37,8 +37,8 @@ elseif cluster == 1
     AnalysisDir   = ['/pine/scr/h/w/angelvv/FerretData/' animalCode '/Analyzed/'];
 
     %code for initialising parallel computing
-%     numCore = 36; % USR DEFINE, max 24 physical + 24 virtual core per computer
-%     myPool = parpool('local',numCore,'SpmdEnabled',false);  
+     numCore = 36; % USR DEFINE, max 24 physical + 24 virtual core per computer
+     myPool = parpool('local',numCore,'SpmdEnabled',false);  
 end
 
 fileInfo   = dir([PreprocessDir animalCode '_Level' level '*']); % detect fileInfo to load/convert  '_LateralVideo*' can't process opto
@@ -238,6 +238,8 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
     
     
 %% plot correlogram
+if doPlotCG == 1
+
 fig = AH_figure(numRegion, numRegion, 'Spike Correlogram');
 for iRegionX = 1:numRegion
     regionNameX = regionNames{iRegionX};
@@ -256,9 +258,10 @@ for iRegionX = 1:numRegion
     end
 end
 AH_savefig(fig, rootAnalysisDir, [saveName '_correlogram_Mnchn']);
-
+end
 
 %% plot power spectra
+if doPlotPower == 1
 figHandle = AH_figure(numRegion, numRegion, 'SpikeCorr Power');
 for iRegionX = 1:numRegion
     regionNameX = regionNames{iRegionX};
@@ -268,7 +271,7 @@ for iRegionX = 1:numRegion
         pairName = [regionNameX '_' regionNameY];
         CorrPow.(pairName) = NaN;
         try
-        CorrPow.(pairName) = compute_plot_powerSpec(Corr.(pairName),figHandle,numRegion,numRegion,(iRegionX-1)*numRegion+iRegionY);
+        [CorrPow.(pairName),foi,tickLoc, tickLabel] = compute_plot_powerSpec(Corr.(pairName),figHandle,numRegion,numRegion,(iRegionX-1)*numRegion+iRegionY);
         catch
         end
         %drawnow
@@ -278,8 +281,10 @@ for iRegionX = 1:numRegion
     end
 end
 AH_savefig(fig, rootAnalysisDir, [saveName '_power_Mnchn']);
-save([rootAnalysisDir saveName '_power_Mnchn'],'CorrPow')
+save([rootAnalysisDir saveName '_power_Mnchn'],'CorrPow','foi','tickLoc', 'tickLabel')
 clear spkTimes Corr SpkCorr
+end
+close all
 
 end % end of condition
 end % end of doEventSelection
