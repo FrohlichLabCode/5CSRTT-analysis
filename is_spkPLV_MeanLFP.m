@@ -1,4 +1,4 @@
-function [evtSpkPLV,evtSpkAngle,numBins] = is_spkPLV_MeanLFP(spkCell,evtTime,C_mean,lfpFs,f,twin,winSize, nSpks)
+function [evtSpkPLV,evtSpkAngle,meta] = is_spkPLV_MeanLFP(spkCell,evtTime,C_mean,lfpFs,f,twin,winSize, nSpks)
 % This function computes spike phase locking across the entire recording,
 % as well as the time-resolved spike phase locking around events of interest. 
 % input:  spikeCell  - spike times in seconds across the whole session stored in a cell. Dimensions(1,channels/neurons)
@@ -34,14 +34,15 @@ sponSpks = 500; %500  USR DEFINE; usually 1000; number of spikes to consider whe
 halfWin  = winSize/2;
 binC     = twin(1):stepSize:twin(2); % vector of the center of spike PLV bins
 numBins  = numel(binC);
-numEvt   = numel(evtTime);
 % get rid of event outside boundary
 evtTime  = evtTime((evtTime + binC(1)-halfWin)>0 & evtTime+binC(end)+halfWin < numel(C_mean)/lfpFs);
+numEvt   = numel(evtTime);
 numAllChans   = length(spkCell);
 evtSpkPLV  = nan(numAllChans,numBins);
 evtSpkAngle = nan(numAllChans,numBins);
 sacPhase = cell(numEvt,numBins); % initialise cell to fill with spike phases
 skippedChn = [];
+unitID = [];
 
 lfpPhase = angle(C_mean); % obtain the angle/phase of the LFP
 
@@ -80,7 +81,7 @@ for iChn = 1:numAllChans % each spike channel
         display(['Skipped Chn: ' num2str(iChn) ', b/c min num spk per bin: ' num2str( min(nspksPerBin)) ]);
         continue % if there aren't enough spikes to compute PLV then skip channel
     else
-       
+        unitID = [unitID iChn];
         for ibin = 1:numBins
             % collect all spike phases for the time bin across events
             tmpPhase = [];
@@ -98,11 +99,14 @@ for iChn = 1:numAllChans % each spike channel
             evtSpkAngle(iChn,ibin) = angle(mean(tmpPLV)); %mean is the same as taking mean of real and imag part separately
         end
     end
-   
 end
-
+% % delete NaN rows (if delete then dimension not match original)
+% evtSpkPLV = evtSpkPLV(unitID,:);
+% evtSpkAngle = evtSpkAngle(unitID,:); 
 % can save this stuff if you want
 meta.skippedChn = skippedChn;
 meta.winSize = winSize;
+meta.numBins = numBins;
+meta.unitID = unitID;
     
 

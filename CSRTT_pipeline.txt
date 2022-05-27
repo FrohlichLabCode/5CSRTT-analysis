@@ -1,0 +1,19 @@
+1. Run is_LoadIntanData_Chan.m to process raw data
+2. Run CSRTT_plotChnLFP to get plots for LFP and spec by channel
+3. Visually inspect the above plots to select valid channels, update keepChn.m
+4. Run AH_preprocessLFP, input: lfpMat.mat; output: lfpDenoised.mat, lfpValid.mat, validChn.mat (all under Preprocessed folder)
+5. Run CSRTT_PSTH to get raster and PSTH for MUA for each opto condition (by channel and avg) -- This can show clearly if there is opto effect (i.e. modulation of FR)
+
+
+For SpikePLV(MUA) and SUPLV:
+For single session processing:
+Both use the same code CSRTT_SpkPLV, both MUA and SUA can be processed in cluster (by cluster == 1)
+if do SU == 0, it calls for CSRTT_SpkPLV_cluster which processes MUA
+- if doCleanSpk == 1, it will use the cleanSpk(MU) preprocessed folder (which excludes the perfect periodic spikes, 3 time samples gitter)
+- if doCleanSpk == 0, it will use the Spk(MU) preprocess folder (which does not exclude perfect periodic spikes)
+if do SU == 1, it calls for CSRTT_SUPLV_cluster which processes SUA
+- if plotValidChnSelection == 0, it will plot all SU chn PLV -- saved in "SpkPLV_StimCorDall_allSpkChn_80spk_n.mat"
+- if plotValidChnSelection == 1, it will plot only valid SU chn (histologically in LP/Pul) PLV -- saved in "SpkPLV_StimCorDall_validSpkChn_80spk_n.mat".
+
+For animalGroup processing:
+SUPLV uses AnimalGroup_SUPLV

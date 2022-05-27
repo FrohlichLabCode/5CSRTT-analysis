@@ -19,6 +19,7 @@ function regionPair_FunConn_V4(cluster, skipRec, MedianorPCA, recName,trialIDs,.
 doPlot = 1;
 doMean = 0;
 doMedian = 1;
+doGC = 0;
 numConds  = numel(condIDs);
 % get parts of recName
 splitName   = strsplit(recName,'_');

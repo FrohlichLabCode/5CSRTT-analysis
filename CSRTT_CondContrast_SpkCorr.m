@@ -4,12 +4,12 @@ clc
 
 cluster = 0;
 skipRec = 0;
-animalCodes = {'0171','0180','0181','0179'};
-analysisType = 'SpkPLV';
+animalCodes = {'0171'};
+analysisType = 'SpkCorr';
 folderSuffix = '';%'_validChns_new';
 doPlot = 1;
-doMix = 0; %<<<
-level = '7b';%<<<
+doMix = 1; %<<<
+level = '6b';%<<<
 alignID = 2; %1=Init, 2=Stim, 3=Touch, 4=Opto
 hitMissID = 1; %1=Correct, 2=Premature, 3=Incorrect, 4=Omission, 5=noPremature
 if doMix == 1
@@ -20,24 +20,13 @@ else
     folderLevel = level;
 end
 
-BaseDir = ['E:/Dropbox (Frohlich Lab)/Angel/FerretData/'];
 
-for iAnimal = 1%:numel(animalCodes)
+for iAnimal = 1%1:numel(animalCodes)
     animalCode = animalCodes{iAnimal};
-    if strcmp(animalCode, '0171')
-        folderSuffix = '_firstChn';%'_validChns_new';
-    else
-        folderSuffix = '_optoChn';%'_validChns_new';
-    end
-    if strcmp(animalCode, '0179')
-        if level(2)=='b';level(2)='a';end
-        if level(2)=='c';level(2)='d';end
-        folderLevel = level;
-    end
     addpath(genpath('E:/Dropbox (Frohlich Lab)/Frohlich Lab Team Folder/Codebase/CodeAngel/Ephys/'));
-    PreprocessDir = [BaseDir animalCode '/Preprocessed' mixSuffix '/'];
-    AnalysisDir   = [BaseDir animalCode '/Analyzed/'];
-    GroupAnalysisDir = [BaseDir animalCode '/GroupAnalysis/SpkPLV' folderSuffix '_' folderLevel '/'];
+    PreprocessDir = ['E:/FerretData/' animalCode '/Preprocessed' mixSuffix '/'];
+    AnalysisDir   = ['E:/FerretData/' animalCode '/Analyzed/'];
+    GroupAnalysisDir = ['E:/FerretData/' animalCode '/GroupAnalysis/SpkPLV_' folderLevel '/'];
 %     fileInfo   = dir([PreprocessDir animalCode '_Level' level '_*']); % detect files to load/convert  '_LateralVideo*' can't process opto
 %     numRec = numel(fileInfo);
     
@@ -55,7 +44,7 @@ for iAnimal = 1%:numel(animalCodes)
         condID = [2,3];
     elseif level(1) == '7'
         condNames = optoNames;
-        condID = [1,2,5];
+        condID = [1,2,3,4];
     end
     %twin = [-3,0]; % last 3s of delay
     numCond = numel(condID);
@@ -100,7 +89,7 @@ for iAnimal = 1%:numel(animalCodes)
     numRow = numRegionSpk;
     numCol = numRegionLFP;
     saveDir = [GroupAnalysisDir 'CondContrast/'];
-    for iCond = 1:numCond-1
+    for iCond = 1:numCond
         condName = condNames{condID(iCond)};
         fig1 = AH_figure(numRow, numCol, ['SpkPLV_' condName '-Sham']); %numRows, numCols, name
         fig3 = AH_figure(numRow, numCol, ['SpkPLV3s_' condName '-Sham']); %numRows, numCols, name
@@ -114,7 +103,7 @@ for iAnimal = 1%:numel(animalCodes)
                 hold on
                 
                 toPlot = squeeze(ContrastPLVMnchnMnses.(condName)(iRegionSpk,iRegionLFP,:,:)); %average across spike channels (2nd last dimension)
-                figName1 = ['SpkPLV_' condName '-Sham_20spk_' level];
+                figName1 = ['SpkPLV_' condName '-Sham_20spk_7b'];
 
                 imagesc(tvec,1:numFreq, toPlot)
                 title([regionNameSpk '-' regionNameLFP ' SpkPLV'])
@@ -125,30 +114,17 @@ for iAnimal = 1%:numel(animalCodes)
                 %vline(0,'k');vline(-5,'r');
                 cl = colorbar('northoutside'); %ylabel(cl, 'Spike-PLV');
                 AH_rwb() %use rwbmap
-                if strcmp(animalCode,'0180') || strcmp(animalCode,'0171')
-                    if iRegionSpk == 2 % LPl drive;
-                        caxis([-0.2,0.2])
-                    elseif iRegionSpk == 3; caxis([-0.05,0.05])
-                    else; caxis([-0.05,0.05])
-                    end
-                else
-                    if iRegionSpk == 2 % LPl drive;
-                        caxis([-0.02,0.02])
-                    elseif iRegionSpk == 3; caxis([-0.005,0.005])
-                    else; caxis([-0.005,0.005])
-                    end
-                end
+                
                 %%
                 set(0,'CurrentFigure',fig3)
                 subplot(numRow, numCol, (iRegionSpk-1)*numCol+iRegionLFP)
                 hold on
                 toPlot = squeeze(nanmean(ContrastPLVMnchn.(condName)(:,iRegionSpk,iRegionLFP,:,tMask),5)); %average across spike channels (2nd last dimension)
-                figName3 = ['SpkPLV_' condName '-Sham_Mn3s_20spk_' level];
+                figName3 = ['SpkPLV_' condName '-Sham_Mn3s_20spk_7b'];
                 
                 sem = nanstd(toPlot, [], 1)/sqrt(size(toPlot,1));
                 shadedErrorBar(1:numFreq, nanmean(toPlot,1),sem, '-k',0.5)
                 set(gca,'TickDir','out','XTick',tickLoc,'XTickLabel',tickLabel)
-                set(gcf,'renderer','Painters')
                 title([regionNameSpk '-' regionNameLFP ' SpkPLV Mn3s']);
                 if iRegionSpk == numRegion; xlabel('Freq [Hz]'); end
                 if iRegionLFP == 1; ylabel('PLV'); end

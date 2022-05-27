@@ -43,7 +43,7 @@ else
     meanMedianSuffix = "_Mdntri";
 end
 doPlot = 0;
-doGC = 0;
+doGC = 1;
 doRejectNoise = 0;
 dsRatio = 10; %dsRatio = 1 is equivalent to no downsample
 time2saveind = round(fs*((twin(1):dsRatio/fs:twin(2))-twin(1)))+1; %downsample to 50Hz when save
@@ -71,6 +71,9 @@ xspec = nan(numFreqs,numel(xsig));
 yspec = nan(numFreqs,numel(ysig));
 dispstat('','init'); % One time only initialization
 %Time0 = tic;
+
+% xsig = double(xsig); % convert from single to double as nanconv can't take single. for cluster
+% ysig = double(ysig);
 for f = 1:numFreqs
     %dispstat(sprintf('convolving signals with wavelet %i/%i ',f,numFreqs)); %dispstat(sprintf('Progress %d%%',i),'timestamp');
     xspec(f,:) = nanconv(xsig,morWav{f},'same'); % nanconv corrects for nan values in xsig

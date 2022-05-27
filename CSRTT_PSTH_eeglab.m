@@ -18,20 +18,23 @@
 clear
 
 addpath(genpath('E:\Dropbox (Frohlich Lab)\Frohlich Lab Team Folder\Codebase\CodeAngel\Ephys\'));
-skipRec = 0;
-eeglabPreproc = 1; % if use variables coming from EEGLAB preprocessing pipeline
+skipRec = 1;
 %cluster = 0;
-level = '';
-
-animalCodes = {'0171','0173'};
+level = '6'; % 6 or 7
+if level(1) == '7';opto=1;end 
+animalCodes = {'0180','0181','0179','0171'}; % 0171 0173 need to use CSRTT_PSTH
+BaseDir = ['E:/Dropbox (Frohlich Lab)/Angel/FerretData/'];
+doCleanSpk = 1;
+eeglabPreproc = 1; % if use variables coming from EEGLAB preprocessing pipeline
 
 % Set up directories
-
-for iAnimal = 1%:numel(animalCodes)
+BaseDir = ['E:/Dropbox (Frohlich Lab)/Angel/FerretData/'];
+for iAnimal = 1:numel(animalCodes)
     animalCode = animalCodes{iAnimal};
-    PreprocessDir = ['E:/FerretData/' animalCode '/Preprocessed_mix/'];
-    AnalysisDir   = ['E:/FerretData/' animalCode '/Analyzed/'];
-    BehavDatDir   = ['E:/FerretData/' animalCode '/behav/'];
+    
+    PreprocessDir = [BaseDir animalCode '/Preprocessed/'];
+    AnalysisDir   = [BaseDir animalCode '/Analyzed/'];
+    %BehavDatDir   = ['E:/FerretData/' animalCode '/behav/'];
     fileInfo   = dir([PreprocessDir animalCode '_Level' level '*']); % detect files to load/convert  '_LateralVideo*'    
 
 % loop through each recording
@@ -42,8 +45,11 @@ for irec = 1:numel(fileInfo)
 
     % Set up directories for each record, for preprocessed data and to store final figures
     rootPreprocessDir = [PreprocessDir recName '/'];
-    rootAnalysisDir   = [AnalysisDir recName '/PSTH_StimCor/'];
-
+    if doCleanSpk == 1
+        rootAnalysisDir   = [AnalysisDir recName '/PSTHcc_StimCor/'];
+    else
+        rootAnalysisDir   = [AnalysisDir recName '/PSTH_StimCor/'];
+    end
     fprintf('Analyzing record %s \n',recName); 
 
     if exist(join(rootAnalysisDir),'dir') % skip already analyzed records
@@ -54,11 +60,17 @@ for irec = 1:numel(fileInfo)
     % Varies dependending on with/without stimulation
     if isempty(level); level = splitName{2}(6);end    
     if level(1) == '6'
-        load([rootPreprocessDir 'eventTimes_StimCor.mat']);
+        if exist([rootPreprocessDir 'eventTimes_StimCor.mat'])
+            load([rootPreprocessDir 'eventTimes_StimCor.mat']);            
+        end
         condIDs = [1,2,3];
     elseif level(1) == '7'
-        load([rootPreprocessDir 'optoEventTimes_StimCor.mat']);
-        condIDs = [1,2,3,4,5];
+        if exist([rootPreprocessDir 'optoEventTimes_StimCor.mat'])
+            load([rootPreprocessDir 'optoEventTimes_StimCor.mat']);
+        else
+            load([rootPreprocessDir 'optoEventTimes_all_Correct.mat']);
+        end
+        condIDs = [1,2,5]; %theta, alpha, sham
     end
 
     numCond = numel(condIDs);
@@ -90,7 +102,7 @@ totalNumChn = length(files); % get total number of channels before exclusion
 
 % declare info about analysis window and binning of PSTH
 %twin = [-2 2]; % window to analyze (in s)
-binSize = 0.1;  % in seconds (for fine detail use .02=20ms, but may have more noisy fluctuation)
+binSize = 0.02;  % in seconds (for fine detail use .02=20ms, but may have more noisy fluctuation)
 
 %% preprocess session behav data
 %%
@@ -110,9 +122,14 @@ for iCond = 1:numel(condIDs) % for each condition
     % Compute baseline-z-scored PSTH for each channel
     display(['computing PSTH ' recName ' condition: StimCor' condName]);
     for iChn = 1:totalNumChn
-        load([rootPreprocessDir 'spikes/spk_' num2str(iChn)]);
+        if doCleanSpk == 1
+            load([rootPreprocessDir 'spikes/cleanSpk_' num2str(iChn)]);
+        else
+        	load([rootPreprocessDir 'spikes/spk_' num2str(iChn)]); 
+        end
         spks  = spkTime; % spike times in seconds % OLD: ./1000; % convert spike times (ms) to seconds
         [timePSTH,PSTHrate,psthstats,psthTrial] = is_PSTHstats(evtTime,spks,twin,binSize); % CZ: PSTHrate's 1st timept is time of saccade
+        
         PSTH(condCount,iChn,:)  = PSTHrate;
         % normalise to pre saccade firing rate
         preBins = (timePSTH>=baseTwin(1) & timePSTH<baseTwin(2)); % 50ms before saccade
@@ -182,7 +199,7 @@ for iRegion = 1:numel(regionNames)
         data2Average = sliceData(any(sliceData,2),:); % remove channels without any spike from mean calculation
         toPlot(iCond,iRegion,:) = squeeze(nanmean(data2Average,1));
         toPlot(iCond,iRegion,:) = smoothts(toPlot(iCond,iRegion,:),'g',3,0.65);
-        plot(toPlot, 'LineWidth', 1.5)
+        pl = plot(toPlot, 'LineWidth', 1.5);
         vline(0);
         legendName{end+1} = condNames{condID(1)};
     else
@@ -195,7 +212,8 @@ for iRegion = 1:numel(regionNames)
             data2Average = sliceData(any(sliceData,2),:); % remove channels without any spike
             toPlot(iCond,iRegion,:) = squeeze(nanmean(data2Average,1)); % average across channels
             toPlot(iCond,iRegion,:) = smoothts(toPlot(iCond,iRegion,:),'g',3,0.65);
-            plot(tvec, squeeze(toPlot(iCond,iRegion,:)), 'LineWidth', 1.5)
+            pl = plot(tvec, squeeze(toPlot(iCond,iRegion,:)), 'LineWidth', 1.5);
+            pl.Color(4) = 0.4; % transparent
             legendName{end+1} = condName;
             vline(0);
 
@@ -217,5 +235,6 @@ save([rootAnalysisDir 'zPSTH_mean.mat'],'timePSTH','toPlot','frZ','validChn', '-
 fileName = ['Z-score FR PSTH_chn-avg_bin' num2str(binSize) '_-2~0base'];
 savefig(fig, [rootAnalysisDir fileName '.fig'],'compact');
 saveas(fig, [rootAnalysisDir fileName '.png']);
-end
-end
+close all % close all figures
+end % end of irec
+end % end of iAnimal

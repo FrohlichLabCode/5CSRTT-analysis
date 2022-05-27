@@ -1,14 +1,15 @@
-function [evtSpkPLVAll,evtSpkAngleAll] = CSRTT_SpkPLV_cluster(recName, twin, newFs, iFreq, foi, wavs,lfpInput, regionNames, regionChn, regionSpk, condName, evtTime,winSize,nSpks)
+function [evtSpkPLVAll,evtSpkAngleAll,metaAll] = CSRTT_SUPLV_cluster(recName, twin, newFs, iFreq, foi, wavs,lfpInput, regionNames, regionChn, regionSpk, condName, evtTime,winSize,nSpks)
 
 % freq = foi(iFreq);
 % level = recName(11);
 numRegion = numel(regionNames);
+%numFreq = numel(foi);
 
 for iRegionLFP = 1:numRegion
     regionNameLFP = regionNames{iRegionLFP};
     oneLFP = lfpInput{iRegionLFP};
     %oneLFP = median(lfpInput(regionChn{iRegion},:),1);
-
+    
     % can use different conv method
     C_mean = conv(oneLFP,wavs{iFreq},'same');
     %C_mean(iRegion,:) = cz_computeHilbert(meanLFP, Freq, newFs);  
@@ -29,12 +30,12 @@ for iRegionLFP = 1:numRegion
 
         %% compute spike phase locking
 
-        [evtSpkPLV,evtSpkAngle,numBins] = is_spkPLV_MeanLFP(spkCell,evtTime,C_mean,newFs,iFreq,twin,winSize,nSpks);
+        [evtSpkPLV,evtSpkAngle,meta] = is_spkPLV_MeanLFP(spkCell,evtTime,C_mean,newFs,iFreq,twin,winSize,nSpks);
 
         %sponSpkPLVAll(iCond,f,:)      = sponSpkPLV; 
-        evtSpkPLVAll(iRegionSpk,iRegionLFP,1,:,:) = evtSpkPLV; %iFreq,:,: dims are condition, frequency, channel, bins
-        evtSpkAngleAll(iRegionSpk,iRegionLFP,1,:,:) = evtSpkAngle;
-
+        evtSpkPLVAll.(regionNameSpk).(regionNameLFP)(:,:) = evtSpkPLV; %iFreq,:,: dims are condition, frequency, channel, bins
+        evtSpkAngleAll.(regionNameSpk).(regionNameLFP)(:,:) = evtSpkAngle;
+        metaAll.(regionNameSpk).(regionNameLFP) = meta;
 %             [sponSpkPLV,evtSpkPLV,evtSpkAngle,evtPhase,numBins] = is_spkPLV_MeanLFP_V3(spkCell,evtTime,C,C_mean,newFs,f,regionChn,twin);
 %             %sponSpkPLVAll(iCond,f,:)      = sponSpkPLV;
 %             evtSpkPLVAll(iCond,iRegion,f,:,:) = evtSpkPLV; % dims are condition,region, frequency, channel, bins 

@@ -1,9 +1,15 @@
 function CSRTT_SpkCorr(irec)
 % Angel Huang 2019.9
+% usage:
+%{
+for irec = 1:32
+    CSRTT_SpkCorr(irec)
+end
+%}
 
 startTime = tic;
 
-cluster = 1;
+cluster = 0;
 skipRec = 1;
 linORlog = 2; %freqs of interest: 1=linear 2=log
 MedianorPCA = 0; 
@@ -17,6 +23,10 @@ doMix = 0;
 alignID = 2; %1=Init, 2=Stim, 3=Touch, 4=Opto
 hitMissID = 1; %1=Correct, 2=Premature, 3=Incorrect, 4=Omission, 5=noPremature
 minSpkRate = 5; %spikes per second
+doPlotCG = 1;
+doPlotPower = 1;
+
+
 if doMix == 1
     mixSuffix = '_mix';
 else
@@ -33,8 +43,8 @@ if cluster == 0 %linux use '/', windows matlab can use both '/' and '\'
 
 elseif cluster == 1
     addpath(genpath( '/nas/longleaf/home/angelvv/Code/')) % CHANGE FOR KILLDEVIL VS LONGLEAF
-    PreprocessDir = ['/pine/scr/h/w/angelvv/FerretData/' animalCode '/Preprocessed' mixSuffix '/']; % CHANGE FOR KILLDEVIL VS LONGLEAF
-    AnalysisDir   = ['/pine/scr/h/w/angelvv/FerretData/' animalCode '/Analyzed/'];
+    PreprocessDir = ['/pine/scr/a/n/angelvv/FerretData/' animalCode '/Preprocessed' mixSuffix '/']; % CHANGE FOR KILLDEVIL VS LONGLEAF
+    AnalysisDir   = ['/pine/scr/a/n/angelvv/FerretData/' animalCode '/Analyzed/'];
 
     %code for initialising parallel computing
      numCore = 36; % USR DEFINE, max 24 physical + 24 virtual core per computer
@@ -56,7 +66,7 @@ regionNames = region.Names;
 numRegion = numel(regionNames);
 [regionChns, regionLFP, ~, lfpFs] = getRegionLFP(rootPreprocessDir, MedianorPCA);
 
-for i = 2%1:numel(doEventSelection)
+for i = 1:numel(doEventSelection)
     eventSelection = doEventSelection(i);
     eventSelectionSuffix = eventSelectionSuffixes{eventSelection+1};
     
@@ -101,7 +111,7 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
         evtTime = evtTimes{condID(iCond)};
     end
     saveName = ['SpkCorr' alignHitName condName eventSelectionSuffix];
-    
+    saveNameZ = ['SpkCorrZ' alignHitName condName eventSelectionSuffix];
     
     %% check if mat file already exist
     if length(dir([rootAnalysisDir saveName '_correlogram.mat'])) == 0 || skipRec ==0 % don't skip
@@ -232,14 +242,35 @@ for iCond = 1:numCond % go through each condition (numCond=1 for whole session a
     
     else % direcly load file
         if ~exist('Corr.P*'); load([rootAnalysisDir saveName '_correlogram']);end % since corr is an endogenous variable, exist('Corr') will always give 6 before loading
+    end
+    if exist([rootAnalysisDir saveNameZ '_power_Mnchn.fig']); continue;end
+    if ~exist('CorrZ.P*')
+            for iRegionX = 1:numRegion
+                for iRegionY = 1:numRegion
+                    if iRegionX > iRegionY; continue;end % same region is done by autoCorr, and don't need symmetric ones
+                    regionNameX = regionNames{iRegionX};
+                    regionNameY = regionNames{iRegionY};           
+                    pairName = [regionNameX '_' regionNameY];                    
+                    CorrZ.(pairName) = AH_zscore(Corr.(pairName));
+                end
+            end            
+            save([rootAnalysisDir saveNameZ '_correlogram'],'spkTimes','Corr','CorrZ','svec','delsamps'); 
+        end
         fprintf('\nLoading spkTimes and Corr \n')
-    end % end of each condition calculating correlation
-
-    
+   
     
 %% plot correlogram
 if doPlotCG == 1
 
+for i = 2
+    if i == 1
+        dat = Corr;
+        figName = saveName;
+    elseif i == 2
+        dat = CorrZ;
+        figName = saveNameZ;
+    end  
+    
 fig = AH_figure(numRegion, numRegion, 'Spike Correlogram');
 for iRegionX = 1:numRegion
     regionNameX = regionNames{iRegionX};
@@ -248,8 +279,8 @@ for iRegionX = 1:numRegion
         regionNameY = regionNames{iRegionY};        
         subplot(numRegion, numRegion, (iRegionX-1)*numRegion+iRegionY)
         pairName = [regionNameX '_' regionNameY];
-        sem = nanstd(Corr.(pairName), [], 1)/sqrt(length(Corr.(pairName)));
-        shadedErrorBar(svec, nanmean(Corr.(pairName),1), sem, '-k',0.5)
+        sem = nanstd(dat.(pairName), [], 1)/sqrt(length(dat.(pairName)));
+        shadedErrorBar(svec, nanmean(dat.(pairName),1), sem, '-k',0.5)
         title([regionNameX '-' regionNameY]); xlim([svec(1),svec(end)]); 
         %ylim([-0.001,0.01]);
         if iRegionX == numRegion; xlabel('Time [ms]'); end
@@ -257,7 +288,7 @@ for iRegionX = 1:numRegion
         %if iRegionX ==1 && iRegionY ==1; ylim([0,0.024]);end
     end
 end
-AH_savefig(fig, rootAnalysisDir, [saveName '_correlogram_Mnchn']);
+AH_savefig(fig, rootAnalysisDir, [figName '_correlogram_Mnchn']);
 end
 
 %% plot power spectra
@@ -271,7 +302,7 @@ for iRegionX = 1:numRegion
         pairName = [regionNameX '_' regionNameY];
         CorrPow.(pairName) = NaN;
         try
-        [CorrPow.(pairName),foi,tickLoc, tickLabel] = compute_plot_powerSpec(Corr.(pairName),figHandle,numRegion,numRegion,(iRegionX-1)*numRegion+iRegionY);
+        [CorrPow.(pairName),foi,tickLoc, tickLabel] = compute_plot_powerSpec(dat.(pairName),figHandle,numRegion,numRegion,(iRegionX-1)*numRegion+iRegionY);
         catch
         end
         %drawnow
@@ -280,12 +311,12 @@ for iRegionX = 1:numRegion
         if iRegionY == 1; ylabel('Power [uV^2]'); end         
     end
 end
-AH_savefig(fig, rootAnalysisDir, [saveName '_power_Mnchn']);
-save([rootAnalysisDir saveName '_power_Mnchn'],'CorrPow','foi','tickLoc', 'tickLabel')
+AH_savefig(figHandle, rootAnalysisDir, [figName '_power_Mnchn']);
+save([rootAnalysisDir figName '_power_Mnchn'],'CorrPow','foi','tickLoc', 'tickLabel')
 clear spkTimes Corr SpkCorr
 end
 close all
-
+end
 end % end of condition
 end % end of doEventSelection
 %end % end of record

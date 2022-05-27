@@ -4,38 +4,61 @@ clc
 
 cluster = 0;
 skipRec = 0;
-animalCodes = {'0171','0173'};
-analysisType = 'PSTH';
+animalCodes = {'0181','0180'};
+analysisType = 'SpkPLV';
 folderSuffix = '';%'_validChns_new';
 doPlot = 1;
-folder = '6bc';
-level = '6c';
-opto = 0;
+doMix = 0; %<<<
+level = '7b';%<<<
+alignID = 2; %1=Init, 2=Stim, 3=Touch, 4=Opto
+hitMissID = 1; %1=Correct, 2=Premature, 3=Incorrect, 4=Omission, 5=noPremature
+if doMix == 1
+    mixSuffix = '_mix';
+    folderLevel = '6bc';
+else
+    mixSuffix = [];
+    folderLevel = level;
+end
+
 regionNames = {'PFC','LPl','PPC','VC'};
 numRegion   = numel(regionNames);
 numSpkRegion = numel(regionNames);
-if opto == 1
-    condNames = {'Theta','Alpha','ArTheta','ArAlpha','Sham'};
-    condID    = [1,2,3,4,5];
+
+if level(1) == '6'
+    fileName = ['SpkPLV_StimCor'];
+    saveName = ['SpkPLV_StimCor_allSpikeChn_80spk_' level];
 else
-    condNames = {'4sDelay','5sDelay','6sDelay','all'};
-    condID    = [1,2,3];
+    fileName = ['SpkPLV_StimCor'];
+    saveName = ['SpkPLV_StimCor_allSpikeChn_80spk_' level];
 end
-numCond = numel(condID);
-fileName = ['SpkPLV_StimCor_avgAllSpikeChn_40spk_' level];
+baseDir  = ['E:/Dropbox (Frohlich Lab)/Angel/FerretData/'];
 for iAnimal = 1%1:numel(animalCodes)
     animalCode = animalCodes{iAnimal};
     addpath(genpath('E:/Dropbox (Frohlich Lab)/Frohlich Lab Team Folder/Codebase/CodeAngel/Ephys/'));
-    PreprocessDir = ['E:/FerretData/' animalCode '/Preprocessed_mix/'];
-    AnalysisDir   = ['E:/FerretData/' animalCode '/Analyzed/'];
-    GroupAnalysisDir = ['E:/FerretData/' animalCode '/GroupAnalysis/SpkPLV_' folder '/'];
+    PreprocessDir = [baseDir animalCode 'Preprocessed' mixSuffix '/'];
+    AnalysisDir   = [baseDir animalCode 'Analyzed/'];
+    GroupAnalysisDir = [baseDir animalCode 'GroupAnalysis/SpkPLV_' folderLevel '/'];
     fileInfo   = dir([PreprocessDir animalCode '_Level' level '_*']); % detect files to load/convert  '_LateralVideo*' can't process opto
     numRec = numel(fileInfo);
-    if exist([GroupAnalysisDir fileName '.mat']) && skipRec == 1
-        load([GroupAnalysisDir fileName '.mat']);
+    if exist([GroupAnalysisDir saveName '.mat']) && skipRec == 1
+        load([GroupAnalysisDir saveName '.mat']);
     else
+        [alignNames, delayNames, delayTypes, hitMissNames, optoNames] = getCSRTTInfo(level);
+        alignName = alignNames{alignID}; %Stim
+        hitMissName = hitMissNames{hitMissID}(1:3); %Cor
+        alignHitName = ['_' alignName hitMissName]; %StimCor        
+        if level(1) == '6'
+            condNames = delayNames;
+            condID = [1,2,3,4];
+        elseif level(1) == '7'|| level(1) == '8'
+            condNames = optoNames;
+            condID = [1,2,3,4,5,6];
+        end
+        twin = [-3,0]; % last 3s of delay
+        numCond = numel(condID);
+        
         rootAnalysisDir   = [AnalysisDir fileInfo(6).name '/SpkPLV_firstChn/'];
-        dat = is_load([rootAnalysisDir 'SpkPLV_StimCor_2-128Hz_40spk.mat'],'dat');
+        dat = is_load([rootAnalysisDir 'SpkPLV_StimCorOall_80spk.mat'],'dat');
         [numCond, numRegionSpk, numRegionLFP, numFreq, numChn, numBins] = size(dat.evtSpkPLVAll);
         allSpkPLVMeanchn = NaN(numRec, numCond, numRegion, numRegion, numFreq, numBins);
         allSpkPLVMedianchn = NaN(numRec, numCond, numRegion, numRegion, numFreq, numBins);
@@ -44,15 +67,15 @@ for iAnimal = 1%1:numel(animalCodes)
             recName = fileInfo(irec).name;   %recName = '0168_Opto_010_20180713';
             splitName = strsplit(recName,'_');
             rootAnalysisDir   = [AnalysisDir recName '/SpkPLV_firstChn/'];
-            if ~exist([rootAnalysisDir 'SpkPLV_StimCor_2-128Hz_40spk.mat']) 
+            if ~exist([rootAnalysisDir 'SpkPLV_StimCorOall_80spk.mat']) 
                 fprintf(['No file found for ' recName '\n']); continue;end % if doesn't have file, skip
             fprintf(['Loading ' recName '\n'])
-            dat = is_load([rootAnalysisDir 'SpkPLV_StimCor_2-128Hz_40spk.mat'],'dat');
+            dat = is_load([rootAnalysisDir 'SpkPLV_StimCorOall_80spk.mat'],'dat');
             allSpkPLVMeanchn(irec,:,:,:,:,:) = reshape(nanmean(dat.evtSpkPLVAll, 5),numCond, numRegion, numRegion, numFreq,numBins); %mean across channels
             allSpkPLVMedianchn(irec,:,:,:,:,:) = reshape(nanmedian(dat.evtSpkPLVAll, 5),numCond, numRegion, numRegion, numFreq,numBins); %mean across channels
         end
         AH_mkdir(GroupAnalysisDir);
-        save([GroupAnalysisDir fileName '.mat'], 'allSpkPLVMeanchn', 'allSpkPLVMedianchn');
+        save([GroupAnalysisDir saveName '.mat'], 'allSpkPLVMeanchn', 'allSpkPLVMedianchn');
     end
         
     % plot Group average
@@ -82,20 +105,20 @@ for iCond = 1:numCond
                 hold on
                 if plotMeanOrMedian == 1
                     SpkPLV = SpkPLVMeanchnMeanses;
-                    suffix = '_MeanchnMeanses';
+                    suffix = '_MnchnMnses';
                 elseif plotMeanOrMedian == 2
                     SpkPLV = SpkPLVMeanchnMedianses;
-                    suffix = '_MeanchnMedianses';
+                    suffix = '_MnchnMdses';
                 elseif plotMeanOrMedian == 3
                     SpkPLV = SpkPLVMedianchnMeanses;
-                    suffix = '_MedianchnMeanses';
+                    suffix = '_MdchnMnses';
                 elseif plotMeanOrMedian == 4
                     SpkPLV = SpkPLVMedianchnMedianses;
-                    suffix = '_MedianchnMedianses';                
+                    suffix = '_MdchnMdses';                
                 end
 
                 toPlot = squeeze(SpkPLV(iCond,iRegionSpk,iRegionLFP,:,:)); %average across spike channels (2nd last dimension)
-                figName = [fileName '_' condName suffix];
+                figName = [saveName '_' condName suffix];
 
                 imagesc(tvec,1:numFreq, toPlot)
                 title([regionNameSpk '-' regionNameLFP ' Spike PLV'])

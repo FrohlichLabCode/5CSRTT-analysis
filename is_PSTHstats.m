@@ -7,7 +7,7 @@ function [timePSTH PSTHrate psthstats psthTrial] = is_PSTHstats(timeevents,spike
 % time is in seconds.
 % Input Variables:
 % timeevents : vector with time of events (in seconds)
-% spiketimes : vector with all time stamps (in seconds
+% spiketimes : vector with all time stamps (in seconds)
 %
 % Output variables
 % timePSTH : time vector for PSTH
